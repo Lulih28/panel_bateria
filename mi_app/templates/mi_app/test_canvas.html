@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Canvas</title>
+    <style>
+        body { background: #0f172a; color: #e5e7eb; font-family: Arial; padding: 20px; }
+        canvas { border: 1px solid #10b981; background: #1a1f2e; }
+        #info { color: #10b981; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Test de Canvas y Chart.js</h1>
+    
+    <div id="info"></div>
+    
+    <h2>Gráfico Simple (Canvas)</h2>
+    <canvas id="testCanvas" width="400" height="300"></canvas>
+    
+    <h2>Gráfico con Chart.js</h2>
+    <canvas id="chartTest" width="400" height="300"></canvas>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const info = document.getElementById('info');
+        
+        // Test 1: Canvas simple
+        function drawSimpleCanvas() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Fondo
+            ctx.fillStyle = '#1a1f2e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Línea
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(50, 250);
+            for (let i = 0; i < 10; i++) {
+                ctx.lineTo(50 + i * 35, 250 - i * 20);
+            }
+            ctx.stroke();
+            
+            info.innerHTML += '<p>✓ Canvas simple dibujado</p>';
+        }
+        
+        // Test 2: Chart.js
+        function drawChartJS() {
+            try {
+                if (typeof Chart === 'undefined') {
+                    info.innerHTML += '<p>✗ Chart.js no disponible</p>';
+                    return;
+                }
+                
+                const canvas = document.getElementById('chartTest');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                    info.innerHTML += '<p>✗ No se pudo obtener contexto 2D</p>';
+                    return;
+                }
+                
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+                        datasets: [{
+                            label: 'Test',
+                            data: [30, 50, 45, 60, 55, 70, 65, 80, 75, 90],
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+                
+                info.innerHTML += '<p>✓ Chart.js funcionando</p>';
+            } catch (err) {
+                info.innerHTML += '<p>✗ Error en Chart.js: ' + err.message + '</p>';
+            }
+        }
+        
+        drawSimpleCanvas();
+        setTimeout(drawChartJS, 100);
+    </script>
+</body>
+</html>

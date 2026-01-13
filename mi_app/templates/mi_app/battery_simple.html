@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Panel de Batería</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #10b981;
+      --bg: #0f172a;
+      --card: #1a1f2e;
+      --border: #2d3748;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+    .header h1 { font-size: 24px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .card h2 { margin-bottom: 16px; font-size: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-box { background: rgba(16, 185, 129, 0.1); border: 1px solid var(--primary); border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-value { font-size: 24px; font-weight: bold; color: var(--primary); }
+    .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .chart-wrapper { position: relative; width: 100%; height: 300px; background: var(--border); border-radius: 8px; overflow: hidden; }
+    canvas { display: block; }
+    .tabs { display: flex; gap: 12px; margin-bottom: 16px; }
+    .tab { padding: 8px 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .nav { display: flex; gap: 12px; margin-bottom: 20px; }
+    .nav-btn { flex: 1; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; }
+    .nav-btn.active { background: var(--primary); color: var(--bg); }
+    .section { display: none; }
+    .section.active { display: block; }
+    .btn { padding: 10px 16px; background: var(--primary); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn:hover { background: #059669; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; }
+    .form-group input { width: 100%; padding: 10px; background: var(--border); border: 1px solid #3d4758; border-radius: 6px; color: var(--text); }
+    .form-group input:focus { outline: none; border-color: var(--primary); }
+    .records-list { margin-top: 16px; max-height: 400px; overflow-y: auto; }
+    .record-item { background: var(--border); padding: 12px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .record-level { font-size: 18px; font-weight: bold; color: var(--primary); }
+    .record-time { color: var(--text-muted); }
+    .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .setting-item { background: var(--border); padding: 16px; border-radius: 8px; }
+    .setting-item h3 { margin-bottom: 12px; font-size: 14px; }
+    .toggle { display: inline-flex; align-items: center; cursor: pointer; }
+    .toggle-switch { width: 40px; height: 24px; background: #4b5563; border-radius: 12px; position: relative; margin-right: 8px; transition: background 0.3s; }
+    .toggle-switch.on { background: var(--primary); }
+    .toggle-switch::after { content: ''; position: absolute; width: 20px; height: 20px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; }
+    .toggle-switch.on::after { left: 18px; }
+    .error { color: #ef4444; font-size: 13px; margin-top: 8px; }
+    .success { color: var(--primary); font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-battery-full" style="color: var(--primary)"></i> Panel de Batería</h1>
+      <div>
+        <button class="btn" onclick="loadData()"><i class="fas fa-sync"></i> Actualizar</button>
+      </div>
+    </div>
+
+    <!-- Navegación -->
+    <div class="nav">
+      <button class="nav-btn active" onclick="switchSection('panel', this)">Panel</button>
+      <button class="nav-btn" onclick="switchSection('historial', this)">Historial</button>
+      <button class="nav-btn" onclick="switchSection('ajustes', this)">Ajustes</button>
+    </div>
+
+    <!-- Sección Panel -->
+    <div id="panel" class="section active">
+      <div class="card">
+        <h2>Estadísticas</h2>
+        <div class="stats">
+          <div class="stat-box">
+            <div class="stat-value" id="maxVal">--</div>
+            <div class="stat-label">Máximo</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="minVal">--</div>
+            <div class="stat-label">Mínimo</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="avgVal">--</div>
+            <div class="stat-label">Promedio</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="countVal">--</div>
+            <div class="stat-label">Registros</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Historial de Batería</h2>
+        <div class="chart-wrapper">
+          <canvas id="mainChart" width="600" height="300"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Uso del Dispositivo</h2>
+        <div class="chart-wrapper">
+          <canvas id="usageChart" width="600" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sección Historial -->
+    <div id="historial" class="section">
+      <div class="card">
+        <h2>Agregar Nuevo Registro</h2>
+        <form onsubmit="addRecord(event)">
+          <div class="form-group">
+            <label for="batteryLevel">Nivel de Batería (%)</label>
+            <input type="number" id="batteryLevel" min="0" max="100" required placeholder="Ej: 85">
+          </div>
+          <div class="form-group">
+            <label for="deviceId">ID del Dispositivo (opcional)</label>
+            <input type="text" id="deviceId" placeholder="Ej: Mi Celular">
+          </div>
+          <button type="submit" class="btn"><i class="fas fa-plus"></i> Agregar Registro</button>
+          <div id="formMessage"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Historial Completo</h2>
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab(this, '7')">Últimos 7 días</button>
+          <button class="tab" onclick="switchTab(this, '30')">Últimos 30 días</button>
+          <button class="tab" onclick="switchTab(this, 'all')">Todo</button>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="histChart" width="600" height="300"></canvas>
+        </div>
+        
+        <h3 style="margin-top: 20px; margin-bottom: 12px;">Registros Recientes</h3>
+        <div class="records-list" id="recordsList">
+          <p style="color: var(--text-muted);">Cargando registros...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sección Ajustes -->
+    <div id="ajustes" class="section">
+      <div class="card">
+        <h2>Configuración de Aplicación</h2>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <h3><i class="fas fa-bell"></i> Notificaciones</h3>
+            <label class="toggle">
+              <div class="toggle-switch" onclick="toggleSetting(this, 'notifications')"></div>
+              <span id="notif-text">Activar</span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <h3><i class="fas fa-leaf"></i> Modo Ahorro</h3>
+            <label class="toggle">
+              <div class="toggle-switch" onclick="toggleSetting(this, 'lowPower')"></div>
+              <span id="lowpower-text">Desactivar</span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <h3><i class="fas fa-moon"></i> No Molestar</h3>
+            <label class="toggle">
+              <div class="toggle-switch" onclick="toggleSetting(this, 'doNotDisturb')"></div>
+              <span id="dnd-text">Desactivar</span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <h3><i class="fas fa-circle-half-stroke"></i> Tema</h3>
+            <select id="themeSelector" onchange="setTheme(this.value)" style="width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+              <option value="dark">Oscuro</option>
+              <option value="light">Claro</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <h3><i class="fas fa-clock"></i> Intervalo de Actualización</h3>
+            <select id="updateInterval" onchange="setUpdateInterval(this.value)" style="width: 100%; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px;">
+              <option value="10000">Cada 10 seg</option>
+              <option value="30000" selected>Cada 30 seg</option>
+              <option value="60000">Cada 1 min</option>
+              <option value="300000">Cada 5 min</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <h3><i class="fas fa-database"></i> Información</h3>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              <p>Registros almacenados: <strong id="totalRecords">0</strong></p>
+              <p>Última actualización: <strong id="lastUpdate">--:--:--</strong></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    let allData = [];
+    let updateIntervalId = null;
+    let settings = {
+      notifications: true,
+      lowPower: false,
+      doNotDisturb: false,
+      updateInterval: 30000
+    };
+
+    // Obtener CSRF token
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    // Dibujar gráfico en canvas
+    function drawChart(canvasId, data, label) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) {
+        console.error('Canvas no encontrado:', canvasId);
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      const pad = 50;
+      const gw = w - 2 * pad;
+      const gh = h - 2 * pad;
+
+      // Limpiar canvas
+      ctx.fillStyle = '#1a1f2e';
+      ctx.fillRect(0, 0, w, h);
+
+      if (!data || data.length === 0) {
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '14px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('Sin datos', w / 2, h / 2);
+        return;
+      }
+
+      // Calcular rango
+      const minVal = Math.min(...data);
+      const maxVal = Math.max(...data);
+      const range = Math.max(maxVal - minVal, 1);
+
+      // Dibujar ejes
+      ctx.strokeStyle = '#2d3748';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pad, pad);
+      ctx.lineTo(pad, h - pad);
+      ctx.lineTo(w - pad, h - pad);
+      ctx.stroke();
+
+      // Dibujar grid y números en Y
+      ctx.strokeStyle = '#2d3748';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '11px Inter';
+      ctx.textAlign = 'right';
+      
+      for (let i = 0; i <= 10; i++) {
+        const y = pad + (gh / 10) * i;
+        const valor = Math.round(maxVal - (range / 10) * i);
+        
+        // Línea de grid
+        ctx.beginPath();
+        ctx.moveTo(pad - 5, y);
+        ctx.lineTo(w - pad, y);
+        ctx.stroke();
+        
+        // Número
+        ctx.fillText(valor, pad - 10, y + 4);
+      }
+
+      // Dibujar números en X
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#9ca3af';
+      for (let i = 0; i < data.length; i++) {
+        if (data.length <= 12 || i % Math.floor(data.length / 12) === 0 || i === data.length - 1) {
+          const x = pad + (gw / (data.length - 1 || 1)) * i;
+          ctx.fillText(i, x, h - pad + 20);
+        }
+      }
+
+      // Dibujar línea
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      for (let i = 0; i < data.length; i++) {
+        const x = pad + (gw / (data.length - 1 || 1)) * i;
+        const y = pad + gh - (((data[i] - minVal) / range) * gh);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Dibujar puntos
+      ctx.fillStyle = '#10b981';
+      for (let i = 0; i < data.length; i++) {
+        const x = pad + (gw / (data.length - 1 || 1)) * i;
+        const y = pad + gh - (((data[i] - minVal) / range) * gh);
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      console.log('Gráfico dibujado:', canvasId, 'con', data.length, 'puntos');
+    }
+
+    // Cargar datos
+    function loadData() {
+      axios.get('/api/battery/').then(res => {
+        allData = Array.isArray(res.data) ? res.data : res.data.results || [];
+        console.log('Datos cargados:', allData.length, 'registros');
+
+        if (allData.length === 0) {
+          console.warn('No hay datos');
+          return;
+        }
+
+        // Actualizar estadísticas
+        const levels = allData.map(r => r.level);
+        document.getElementById('maxVal').textContent = Math.max(...levels) + '%';
+        document.getElementById('minVal').textContent = Math.min(...levels) + '%';
+        document.getElementById('avgVal').textContent = Math.round(levels.reduce((a,b)=>a+b,0)/levels.length) + '%';
+        document.getElementById('countVal').textContent = allData.length;
+        document.getElementById('totalRecords').textContent = allData.length;
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es-ES');
+
+        // Dibujar gráficos después de un pequeño delay
+        setTimeout(() => {
+          drawChart('mainChart', levels, 'Historial');
+          
+          // Calcular tendencia: dividir datos en segmentos y promediar
+          let tendencia = [];
+          const segmentos = Math.min(24, Math.ceil(levels.length / 2));
+          const tamanoSegmento = Math.ceil(levels.length / segmentos);
+          for (let i = 0; i < segmentos; i++) {
+            const inicio = i * tamanoSegmento;
+            const fin = Math.min(inicio + tamanoSegmento, levels.length);
+            const promedio = Math.round(levels.slice(inicio, fin).reduce((a,b)=>a+b,0) / (fin - inicio));
+            tendencia.push(promedio);
+          }
+          
+          drawChart('usageChart', tendencia, 'Tendencia de Batería');
+          drawChart('histChart', levels, 'Historial Completo');
+          updateRecordsList();
+        }, 100);
+      }).catch(err => console.error('Error cargando datos:', err));
+    }
+
+    // Actualizar lista de registros
+    function updateRecordsList() {
+      const listDiv = document.getElementById('recordsList');
+      if (allData.length === 0) {
+        listDiv.innerHTML = '<p style="color: var(--text-muted);">No hay registros</p>';
+        return;
+      }
+
+      let html = '';
+      allData.slice(0, 20).forEach(record => {
+        const date = new Date(record.created_at);
+        const time = date.toLocaleString('es-ES');
+        const device = record.device_id || 'Dispositivo desconocido';
+        html += `
+          <div class="record-item">
+            <div>
+              <div style="font-weight: 600;">${device}</div>
+              <div class="record-time">${time}</div>
+            </div>
+            <div class="record-level">${record.level}%</div>
+          </div>
+        `;
+      });
+      listDiv.innerHTML = html;
+    }
+
+    // Agregar nuevo registro
+    function addRecord(event) {
+      event.preventDefault();
+      const level = document.getElementById('batteryLevel').value;
+      const deviceId = document.getElementById('deviceId').value || 'Manual';
+      const messageDiv = document.getElementById('formMessage');
+
+      if (!level || level < 0 || level > 100) {
+        messageDiv.innerHTML = '<div class="error"><i class="fas fa-exclamation"></i> El nivel debe estar entre 0 y 100</div>';
+        return;
+      }
+
+      axios.post('/api/battery/', {
+        level: parseInt(level),
+        device_id: deviceId
+      }, {
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      }).then(res => {
+        console.log('Registro agregado:', res.data);
+        messageDiv.innerHTML = '<div class="success"><i class="fas fa-check"></i> Registro agregado exitosamente</div>';
+        document.getElementById('batteryLevel').value = '';
+        document.getElementById('deviceId').value = '';
+        
+        // Cargar todos los datos nuevamente para actualizar gráficos
+        loadData();
+        
+        setTimeout(() => {
+          messageDiv.innerHTML = '';
+        }, 3000);
+      }).catch(err => {
+        console.error('Error:', err);
+        messageDiv.innerHTML = '<div class="error"><i class="fas fa-exclamation"></i> Error: ' + (err.response?.data?.message || err.message) + '</div>';
+      });
+    }
+
+    // Cambiar sección
+    function switchSection(sectionId, btn) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(sectionId).classList.add('active');
+      btn.classList.add('active');
+
+      // Redibujar gráficos si es necesario
+      if (sectionId === 'panel' && allData.length > 0) {
+        setTimeout(() => {
+          const levels = allData.map(r => r.level);
+          drawChart('mainChart', levels, 'Historial');
+          
+          let tendencia = [];
+          const segmentos = Math.min(24, Math.ceil(levels.length / 2));
+          const tamanoSegmento = Math.ceil(levels.length / segmentos);
+          for (let i = 0; i < segmentos; i++) {
+            const inicio = i * tamanoSegmento;
+            const fin = Math.min(inicio + tamanoSegmento, levels.length);
+            const promedio = Math.round(levels.slice(inicio, fin).reduce((a,b)=>a+b,0) / (fin - inicio));
+            tendencia.push(promedio);
+          }
+          
+          drawChart('usageChart', tendencia, 'Tendencia de Batería');
+        }, 100);
+      }
+      
+      if (sectionId === 'historial' && allData.length > 0) {
+        setTimeout(() => {
+          const levels = allData.map(r => r.level);
+          drawChart('histChart', levels, 'Historial');
+        }, 100);
+      }
+    }
+
+    // Cambiar tab
+    function switchTab(btn, period) {
+      btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      
+      if (allData.length > 0) {
+        const levels = allData.map(r => r.level);
+        drawChart('histChart', levels, 'Historial');
+      }
+    }
+
+    // Alternar configuración
+    function toggleSetting(element, setting) {
+      element.classList.toggle('on');
+      settings[setting] = element.classList.contains('on');
+      const text = element.nextElementSibling;
+      text.textContent = element.classList.contains('on') ? 'Activar' : 'Desactivar';
+      console.log('Setting', setting, ':', settings[setting]);
+    }
+
+    // Cambiar tema
+    function setTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.style.setProperty('--bg', '#ffffff');
+        document.documentElement.style.setProperty('--card', '#f3f4f6');
+        document.documentElement.style.setProperty('--border', '#e5e7eb');
+        document.documentElement.style.setProperty('--text', '#1f2937');
+        document.documentElement.style.setProperty('--text-muted', '#6b7280');
+      } else {
+        document.documentElement.style.setProperty('--bg', '#0f172a');
+        document.documentElement.style.setProperty('--card', '#1a1f2e');
+        document.documentElement.style.setProperty('--border', '#2d3748');
+        document.documentElement.style.setProperty('--text', '#e5e7eb');
+        document.documentElement.style.setProperty('--text-muted', '#9ca3af');
+      }
+      localStorage.setItem('theme', theme);
+    }
+
+    // Establecer intervalo de actualización
+    function setUpdateInterval(interval) {
+      settings.updateInterval = parseInt(interval);
+      if (updateIntervalId) clearInterval(updateIntervalId);
+      updateIntervalId = setInterval(loadData, settings.updateInterval);
+      localStorage.setItem('updateInterval', interval);
+      console.log('Intervalo de actualización:', interval, 'ms');
+    }
+
+    // Cargar configuración guardada
+    function loadSettings() {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      const savedInterval = localStorage.getItem('updateInterval') || '30000';
+      document.getElementById('themeSelector').value = savedTheme;
+      document.getElementById('updateInterval').value = savedInterval;
+      setTheme(savedTheme);
+    }
+
+    // Cargar datos al iniciar
+    window.addEventListener('load', () => {
+      loadSettings();
+      loadData();
+      updateIntervalId = setInterval(loadData, settings.updateInterval);
+    });
+  </script>
+</body>
+</html>
