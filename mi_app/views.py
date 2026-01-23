@@ -15,6 +15,27 @@ def battery_simple(request):
 	return render(request, 'mi_app/battery_simple.html')
 
 
+def battery_refactored(request):
+	"""Vista refactorizada - Ruta alternativa
+	
+	Esta vista proporciona acceso a la aplicación de monitoreo de batería
+	a través de una ruta alternativa (/battery-refactored/).
+	
+	Utiliza la misma plantilla que /battery/ (battery_simple.html) la cual
+	implementa una arquitectura limpia con:
+	- Servicios: lógica de negocio
+	- Controladores: coordinación
+	- Canvas API: visualización de datos sin dependencias externas
+	
+	La arquitectura está optimizada para:
+	- Modularidad: Código organizado en funciones reutilizables
+	- Mantenibilidad: Separación clara de responsabilidades
+	- Rendimiento: Sin frameworks JavaScript innecesarios
+	- Accesibilidad: CORS habilitado para acceso desde dispositivos móviles
+	"""
+	return render(request, 'mi_app/battery_simple.html')
+
+
 @require_http_methods(["GET", "POST"])
 def battery_view(request):
 	"""Vista que muestra el nivel de batería y guarda registros.

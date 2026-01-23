@@ -262,9 +262,21 @@
         return;
       }
 
-      // Calcular rango
-      const minVal = Math.min(...data);
-      const maxVal = Math.max(...data);
+      // Usar rango 0-100 para porcentajes, o rango dinámico para otros datos
+      let minVal = 0;
+      let maxVal = 100;
+      
+      // Si es el gráfico de historial, usar 0-100
+      if (canvasId === 'mainChart' || canvasId === 'histChart') {
+        minVal = 0;
+        maxVal = 100;
+      } else {
+        // Para otros gráficos, usar el rango real de datos
+        minVal = Math.min(...data);
+        maxVal = Math.max(...data);
+        if (maxVal === minVal) maxVal = minVal + 1;
+      }
+      
       const range = Math.max(maxVal - minVal, 1);
 
       // Dibujar ejes
@@ -330,22 +342,31 @@
         ctx.fill();
       }
 
-      console.log('Gráfico dibujado:', canvasId, 'con', data.length, 'puntos');
+      console.log('Gráfico dibujado:', canvasId, 'con', data.length, 'puntos', 'rango:', minVal, '-', maxVal);
     }
 
     // Cargar datos
     function loadData() {
+      console.log('🔄 Cargando datos...');
       axios.get('/api/battery/').then(res => {
+        console.log('✅ Respuesta de API:', res.data);
         allData = Array.isArray(res.data) ? res.data : res.data.results || [];
-        console.log('Datos cargados:', allData.length, 'registros');
+        console.log('📊 Datos procesados:', allData.length, 'registros');
+        console.log('Primeros registros:', allData.slice(0, 3));
 
         if (allData.length === 0) {
-          console.warn('No hay datos');
+          console.warn('⚠️ No hay datos');
           return;
         }
 
+        // Invertir datos para mostrar del más antiguo al más reciente
+        const allDataInverted = [...allData].reverse();
+        console.log('⬅️ Datos invertidos para gráfico');
+
         // Actualizar estadísticas
         const levels = allData.map(r => r.level);
+        console.log('📈 Niveles extraídos:', levels);
+        
         document.getElementById('maxVal').textContent = Math.max(...levels) + '%';
         document.getElementById('minVal').textContent = Math.min(...levels) + '%';
         document.getElementById('avgVal').textContent = Math.round(levels.reduce((a,b)=>a+b,0)/levels.length) + '%';
@@ -353,26 +374,34 @@
         document.getElementById('totalRecords').textContent = allData.length;
         document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es-ES');
 
-        // Dibujar gráficos después de un pequeño delay
+        // Calcular tendencia usando datos invertidos
+        const levelsInverted = allDataInverted.map(r => r.level);
+        let tendencia = [];
+        const segmentos = Math.min(24, Math.ceil(levelsInverted.length / 2));
+        const tamanoSegmento = Math.ceil(levelsInverted.length / segmentos);
+        for (let i = 0; i < segmentos; i++) {
+          const inicio = i * tamanoSegmento;
+          const fin = Math.min(inicio + tamanoSegmento, levelsInverted.length);
+          const promedio = Math.round(levelsInverted.slice(inicio, fin).reduce((a,b)=>a+b,0) / (fin - inicio));
+          tendencia.push(promedio);
+        }
+        console.log('📊 Tendencia:', tendencia);
+
+        // Dibujar gráficos
         setTimeout(() => {
-          drawChart('mainChart', levels, 'Historial');
+          console.log('🎨 Dibujando mainChart...');
+          drawChart('mainChart', levelsInverted, 'Historial');
           
-          // Calcular tendencia: dividir datos en segmentos y promediar
-          let tendencia = [];
-          const segmentos = Math.min(24, Math.ceil(levels.length / 2));
-          const tamanoSegmento = Math.ceil(levels.length / segmentos);
-          for (let i = 0; i < segmentos; i++) {
-            const inicio = i * tamanoSegmento;
-            const fin = Math.min(inicio + tamanoSegmento, levels.length);
-            const promedio = Math.round(levels.slice(inicio, fin).reduce((a,b)=>a+b,0) / (fin - inicio));
-            tendencia.push(promedio);
-          }
-          
+          console.log('🎨 Dibujando usageChart...');
           drawChart('usageChart', tendencia, 'Tendencia de Batería');
-          drawChart('histChart', levels, 'Historial Completo');
+          
+          console.log('🎨 Dibujando histChart...');
+          drawChart('histChart', levelsInverted, 'Historial Completo');
+          
+          console.log('📝 Actualizando registros...');
           updateRecordsList();
         }, 100);
-      }).catch(err => console.error('Error cargando datos:', err));
+      }).catch(err => console.error('❌ Error cargando datos:', err));
     }
 
     // Actualizar lista de registros
@@ -413,18 +442,21 @@
         return;
       }
 
+      console.log('Enviando registro:', { level: parseInt(level), device_id: deviceId });
+
       axios.post('/api/battery/', {
         level: parseInt(level),
         device_id: deviceId
       }, {
         headers: { 'X-CSRFToken': getCookie('csrftoken') }
       }).then(res => {
-        console.log('Registro agregado:', res.data);
+        console.log('Respuesta del servidor:', res.data);
         messageDiv.innerHTML = '<div class="success"><i class="fas fa-check"></i> Registro agregado exitosamente</div>';
         document.getElementById('batteryLevel').value = '';
         document.getElementById('deviceId').value = '';
         
-        // Cargar todos los datos nuevamente para actualizar gráficos
+        // Recargar todos los datos
+        console.log('Recargando datos...');
         loadData();
         
         setTimeout(() => {
