@@ -22,9 +22,5 @@ from mi_app import api as mi_api
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('battery/', mi_views.battery_simple, name='battery'),
-    path('battery-simple/', mi_views.battery_simple, name='battery-simple'),
-    path('battery-refactored/', mi_views.battery_refactored, name='battery-refactored'),
-    path('battery-old/', mi_views.battery_view, name='battery-old'),
-    path('test-canvas/', mi_views.test_canvas, name='test-canvas'),
     path('api/battery/', mi_api.BatteryListCreateAPI.as_view(), name='api-battery'),
 ]
