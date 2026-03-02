@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+db.sqlite3
+staticfiles/
+media/
+
+# Environment variables
+.env
+
+# Firebase credentials
+serviceAccountKey.json
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtualenv
+.venv/
+venv/
+env/
+/bin/
+/lib/
+/share/
+/include/

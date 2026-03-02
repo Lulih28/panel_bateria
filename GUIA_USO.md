@@ -1,57 +1,29 @@
-# 📱 Panel de Monitoreo de Batería - Guía de Uso
+# 📱 Mediciones App - Guía de Uso
 
+Esta aplicación permite llevar un registro personalizado de cualquier métrica o actividad (Pasos, Peso, Natación, Tiempo de estudio, etc.).
 
-### Panel Principal
-El panel muestra un resumen rápido con:
-- **Máximo:** Valor más alto registrado
-- **Mínimo:** Valor más bajo registrado  
-- **Promedio:** Media de todos los registros
-- **Registros:** Total de registros almacenados
+## 🚀 Panel Principal
+El panel muestra tus categorías activas y un resumen rápido de cada una:
+- **Máximo:** El valor más alto registrado.
+- **Mínimo:** El valor más bajo registrado.
+- **Promedio:** La media de todos tus registros.
+- **Último:** El valor más reciente ingresado.
 
-Incluye dos gráficos:
-1. **Historial de Batería:** Últimos 7 días
-2. **Tendencia:** Evolución general del consumo
+### Acciones en el Panel
+- **Agregar Categoría:** Tocá el botón `+ Categoría` para crear una nueva meta con su nombre, unidad e icono.
+- **Registrar Dato:** Tocá una tarjeta para abrir el modal de ingreso rápido de valor.
+- **Editar Categoría:** Mantené presionada una tarjeta para cambiar el nombre, unidad o icono de la categoría.
+- **Borrar Categoría:** Deslizá una tarjeta hacia la **izquierda** para ver el botón rojo de eliminar.
 
-### Historial
-Sección para gestionar registros de batería:
+## 📜 Historial
+Aquí se listan todos los registros individuales de todas las categorías.
+- **Filtrar:** Podés ver cuándo y qué valor se registró.
+- **Editar Registro:** Mantené presionado un registro para corregir el valor o añadir una nota.
+- **Borrar Registro:** Deslizá un registro hacia la **izquierda** para eliminarlo individualmente.
 
-#### Agregar Nuevo Registro
-1. Ingresa el nivel de batería (0-100%)
-2. (Opcional) Ingresa ID del dispositivo
-3. Haz clic en "Agregar Registro"
+## ⚙️ Ajustes
+Configuraciones generales de la aplicación (en desarrollo).
+- Podés ver la versión actual de la app y la URL del servidor.
 
-#### Ver Registros Históricos
-- **Últimos 7 días:** Gráfico con los últimos 7 días
-- **Últimos 30 días:** Gráfico con los últimos 30 días
-- **Todo:** Todos los registros disponibles
-
-La lista de registros muestra:
-- Nivel de batería (%)
-- Fecha y hora
-- Dispositivo de origen
-
-### Ajustes
-Personaliza la aplicación según tus necesidades:
-
-#### Toggles
-- **Notificaciones:** Recibe alertas (función futura)
-- **Modo Ahorro:** Modo de bajo consumo (función futura)
-- **No Molestar:** Desactiva notificaciones (función futura)
-
-#### Tema
-Elige entre:
-- Oscuro (predeterminado)
-- Claro
-
-#### Intervalo de Actualización
-Controla con qué frecuencia se actualizan los gráficos:
-- Cada 10 segundos (actualizaciones muy frecuentes)
-- Cada 30 segundos (recomendado)
-- Cada 1 minuto (actualizaciones moderadas)
-- Cada 5 minutos (actualizaciones lentas)
-
-#### Información
-- **Registros almacenados:** Total de registros en la base de datos
-- **Última actualización:** Hora de la última actualización
-
-
+---
+**Nota:** Asegurate de que el servidor backend esté corriendo y de que la URL en los ajustes coincida con la IP de tu computadora para que la app pueda sincronizar los datos.

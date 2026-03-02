@@ -15,12 +15,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from mi_app import views as mi_views
 from mi_app import api as mi_api
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('battery/', mi_views.battery_simple, name='battery'),
-    path('api/battery/', mi_api.BatteryListCreateAPI.as_view(), name='api-battery'),
+    path('api/categories/', mi_api.CategoryListCreateAPI.as_view(), name='api-categories'),
+    path('api/categories/<int:pk>/', mi_api.CategoryDetailAPI.as_view(), name='api-category-detail'),
+    path('api/entries/', mi_api.TrackEntryListCreateAPI.as_view(), name='api-entries'),
+    path('api/entries/<int:pk>/', mi_api.TrackEntryDetailAPI.as_view(), name='api-entry-detail'),
+    path('api/delete-account/', mi_api.UserDeleteAPI.as_view(), name='api-delete-account'),
 ]
+
