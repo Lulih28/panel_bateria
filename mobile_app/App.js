@@ -43,8 +43,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
-  // Cambia esto por tu URL de Render cuando la tengas: https://tu-app.onrender.com
-  const [baseUrl, setBaseUrl] = useState('http://192.168.1.34:8000');
+  // URL del servidor en producción (Render)
+  const [baseUrl, setBaseUrl] = useState('https://panel-bateria.onrender.com');
 
   // Handle user state changes
   function onAuthStateChangedHandler(user) {
