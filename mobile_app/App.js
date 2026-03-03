@@ -749,7 +749,7 @@ function App() {
 
 
             <Text style={styles.versionLabel}>
-              Mediciones app v2.5.0
+              Mi Progreso v2.5.0
             </Text>
           </View>
         );
@@ -771,7 +771,7 @@ function App() {
         <StatusBar style="light" />
 
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Mediciones app</Text>
+          <Text style={styles.headerTitle}>Mi Progreso</Text>
         </View>
 
         <View style={styles.nav}>

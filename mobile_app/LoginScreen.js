@@ -118,7 +118,7 @@ export default function LoginScreen() {
 
       </View>
       <Text style={[styles.footerText, { color: THEME.textMuted }]}>
-        Panel de Batería v2.5.0
+        Mi Progreso v2.5.0
       </Text>
     </View>
   );
