@@ -35,6 +35,13 @@ class TrackEntryListCreateAPI(generics.ListCreateAPIView):
             queryset = queryset.filter(category_id=category_id)
         return queryset
 
+    def perform_create(self, serializer):
+        created_at = self.request.data.get('created_at')
+        if created_at:
+            serializer.save(created_at=created_at)
+        else:
+            serializer.save()
+
 
 class TrackEntryDetailAPI(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TrackEntrySerializer
