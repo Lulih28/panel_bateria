@@ -19,6 +19,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class TrackEntrySerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
     unit = serializers.ReadOnlyField(source='category.unit')
+    created_at = serializers.DateTimeField(required=False)
 
     class Meta:
         model = TrackEntry
