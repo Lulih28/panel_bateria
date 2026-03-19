@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -20,10 +21,15 @@ class TrackEntry(models.Model):
     value = models.FloatField()
     note = models.TextField(blank=True, null=True)
     device_id = models.CharField(max_length=100, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.created_at:
+            self.created_at = timezone.now()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.category.name}: {self.value} {self.category.unit or ''} at {self.created_at}"
