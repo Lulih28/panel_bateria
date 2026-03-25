@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as Sentry from '@sentry/react-native';
 import {
   StyleSheet, Text, View, FlatList, ActivityIndicator,
@@ -7,10 +7,11 @@ import {
   ScrollView, Alert, Dimensions, TextInput, Modal
 } from 'react-native';
 
-import { LineChart } from 'react-native-chart-kit';
+import { BarChart } from 'react-native-chart-kit';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import * as Device from 'expo-device';
 import * as Battery from 'expo-battery';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // FIREBASE IMPORTS
 import { onAuthStateChanged, signOut, updateProfile, deleteUser } from 'firebase/auth';
@@ -84,10 +85,16 @@ function App() {
   // New Entry Form
   const [editingEntry, setEditingEntry] = useState({ id: null, value: '', note: '' });
   const [newEntryVal, setNewEntryVal] = useState('');
+  const [newEntryDate, setNewEntryDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [useManualDate, setUseManualDate] = useState(false);
 
   // Profile Edit State
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+
+  // Debug state for loading screen
+  const [showDebug, setShowDebug] = useState(false);
 
   const endpoints = {
     categories: `${baseUrl}/api/categories/`,
@@ -250,18 +257,26 @@ function App() {
     if (!selectedCategory || !newEntryVal) return;
     try {
       const headers = await getHeaders();
+      const body = {
+        category: selectedCategory.id,
+        value: parseFloat(newEntryVal),
+        device_id: Device.modelName || 'Móvil'
+      };
+
+      if (useManualDate) {
+        body.created_at = newEntryDate.toISOString();
+      }
+
       const res = await fetch(endpoints.entries, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          category: selectedCategory.id,
-          value: parseFloat(newEntryVal),
-          device_id: Device.modelName || 'Móvil'
-        })
+        body: JSON.stringify(body)
       });
       if (res.ok) {
         setShowAddEntry(false);
         setNewEntryVal('');
+        setUseManualDate(false);
+        setNewEntryDate(new Date());
         fetchData();
       }
     } catch (err) {
@@ -450,22 +465,98 @@ function App() {
 
   const renderDetailView = () => {
     const cat = selectedCategory;
-    // historyEntries: Original chronological order (Newest first) for the list
     const historyEntries = Array.isArray(entries) ? entries.filter(e => e.category === cat.id) : [];
-    // chartEntries: Reversed order (Oldest first) for the chart
     const chartEntries = [...historyEntries].reverse();
 
     const stats = getStats(cat.id);
 
-    // Chart Data
-    const chartData = {
-      labels: chartEntries.slice(-6).map(e => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let batteryDailyData = null;
+    let batteryWeeklyData = null;
+    let otherWeeklyData = null;
+
+    if (cat.is_system) {
+      // 1. Gráfico Diario (Today)
+      const todayEntries = chartEntries.filter(e => new Date(e.created_at) >= todayStart);
+      const dsDaily = todayEntries.slice(-6); // Max 6 to fit nicely
+      if (dsDaily.length > 0) {
+        batteryDailyData = {
+          labels: dsDaily.map(e => {
+            const d = new Date(e.created_at);
+            return `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+          }),
+          datasets: [{ data: dsDaily.map(e => e.value) }],
+          rawEntries: dsDaily
+        };
+      }
+
+      // 2. Gráfico Semanal Promedio por día (Lun-Dom)
+      const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+      const daySums = [0, 0, 0, 0, 0, 0, 0];
+      const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+
+      chartEntries.forEach(e => {
         const d = new Date(e.created_at);
-        return `${d.getDate()}/${d.getMonth() + 1}`;
-      }),
-      datasets: [{
-        data: chartEntries.length > 0 ? chartEntries.slice(-6).map(e => e.value) : [0]
-      }]
+        daySums[d.getDay()] += e.value;
+        dayCounts[d.getDay()] += 1;
+      });
+
+      const avgData = daysOfWeek.map((label, idx) => {
+        return dayCounts[idx] > 0 ? (daySums[idx] / dayCounts[idx]) : 0;
+      });
+
+      const shiftedLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+      const shiftedData = [
+        avgData[1], avgData[2], avgData[3], avgData[4], avgData[5], avgData[6], avgData[0]
+      ];
+
+      if (chartEntries.length > 0) {
+        batteryWeeklyData = {
+          labels: shiftedLabels,
+          datasets: [{ data: shiftedData }]
+        };
+      }
+    } else {
+      // 3. Gráfico Semanal (Últimos 7 días)
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        last7Days.push(d);
+      }
+
+      const sums7Days = [0, 0, 0, 0, 0, 0, 0];
+
+      chartEntries.forEach(e => {
+        const ed = new Date(e.created_at);
+        last7Days.forEach((dayStart, idx) => {
+          const nextDay = new Date(dayStart);
+          nextDay.setDate(nextDay.getDate() + 1);
+          if (ed >= dayStart && ed < nextDay) {
+            sums7Days[idx] += e.value;
+          }
+        });
+      });
+
+      if (chartEntries.length > 0) {
+        otherWeeklyData = {
+          labels: last7Days.map(d => `${d.getDate()}/${d.getMonth() + 1}`),
+          datasets: [{ data: sums7Days }]
+        };
+      }
+    }
+
+    const chartConfig = {
+      backgroundColor: THEME.card,
+      backgroundGradientFrom: THEME.card,
+      backgroundGradientTo: THEME.card,
+      decimalPlaces: 0,
+      color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+      labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+      barPercentage: 0.6,
+      propsForLabels: { fontSize: 10 },
+      style: { borderRadius: 16 }
     };
 
     return (
@@ -480,43 +571,81 @@ function App() {
           </View>
         </View>
 
-        <View style={[styles.card, { marginTop: 10 }]}>
-          <Text style={styles.chartTitle}>Tendencia Reciente</Text>
-          {chartEntries.length > 0 ? (
-            <LineChart
-              data={chartData}
-              width={Dimensions.get('window').width - 70}
-              height={260}
-              onDataPointClick={({ value, index }) => {
-                // Ensure we get the correct entry matching the chart data
-                const visibleEntries = chartEntries.slice(-6);
-                const entry = visibleEntries[index];
+        {cat.is_system ? (
+          <React.Fragment>
+            <View style={[styles.card, { marginTop: 10 }]}>
+              <Text style={styles.chartTitle}>Nivel del Día (Hoy)</Text>
+              {batteryDailyData ? (
+                <BarChart
+                  data={batteryDailyData}
+                  width={Dimensions.get('window').width - 70}
+                  height={220}
+                  yAxisLabel=""
+                  yAxisSuffix="%"
+                  fromZero={true}
+                  showValuesOnTopOfBars={true}
+                  chartConfig={chartConfig}
+                  onDataPointClick={({ value, index }) => {
+                    const entry = batteryDailyData.rawEntries[index];
+                    if (entry) {
+                      const d = new Date(entry.created_at);
+                      const timeStr = `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                      Alert.alert('Detalle', `Valor: ${value} ${cat.unit}\nFecha: ${timeStr}`);
+                    }
+                  }}
+                  style={{ marginVertical: 8, borderRadius: 16 }}
+                />
+              ) : (
+                <View style={[styles.center, { height: 100 }]}><Text style={styles.textMuted}>Sin registros hoy</Text></View>
+              )}
+            </View>
 
-                if (entry) {
-                  const d = new Date(entry.created_at);
-                  const timeStr = `${d.getDate()}/${d.getMonth() + 1} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
-                  Alert.alert('Detalle', `Valor: ${value} ${cat.unit}\nFecha: ${timeStr}`);
-                } else {
-                  Alert.alert('Error', 'No se pudo encontrar el detalle.');
-                }
-              }}
-              chartConfig={{
-                backgroundColor: THEME.card,
-                backgroundGradientFrom: THEME.card,
-                backgroundGradientTo: THEME.card,
-                decimalPlaces: 1,
-                color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`, // THEME.primary
-                labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`, // THEME.textMuted
-                style: { borderRadius: 16 },
-                propsForDots: { r: "6", strokeWidth: "2", stroke: THEME.primary }
-              }}
-              bezier
-              style={{ marginVertical: 8, borderRadius: 16 }}
-            />
-          ) : (
-            <View style={[styles.center, { height: 100 }]}><Text style={styles.textMuted}>Sin datos suficientes</Text></View>
-          )}
-        </View>
+            <View style={[styles.card, { marginTop: 10 }]}>
+              <Text style={styles.chartTitle}>Nivel Promedio Semanal</Text>
+              {batteryWeeklyData && chartEntries.length > 0 ? (
+                <BarChart
+                  data={batteryWeeklyData}
+                  width={Dimensions.get('window').width - 70}
+                  height={220}
+                  yAxisLabel=""
+                  yAxisSuffix="%"
+                  fromZero={true}
+                  showValuesOnTopOfBars={true}
+                  chartConfig={chartConfig}
+                  onDataPointClick={({ value, index }) => {
+                    const label = batteryWeeklyData.labels[index];
+                    Alert.alert('Promedio Semanal', `Día: ${label}\nPromedio: ${value.toFixed(1)} ${cat.unit}`);
+                  }}
+                  style={{ marginVertical: 8, borderRadius: 16 }}
+                />
+              ) : (
+                <View style={[styles.center, { height: 100 }]}><Text style={styles.textMuted}>Sin datos suficientes</Text></View>
+              )}
+            </View>
+          </React.Fragment>
+        ) : (
+          <View style={[styles.card, { marginTop: 10 }]}>
+            <Text style={styles.chartTitle}>Últimos 7 Días</Text>
+            {otherWeeklyData && chartEntries.length > 0 ? (
+              <BarChart
+                data={otherWeeklyData}
+                width={Dimensions.get('window').width - 70}
+                height={220}
+                yAxisLabel=""
+                fromZero={true}
+                showValuesOnTopOfBars={true}
+                chartConfig={chartConfig}
+                onDataPointClick={({ value, index }) => {
+                  const label = otherWeeklyData.labels[index];
+                  Alert.alert('Total del Día', `Fecha: ${label}\nSuma: ${value} ${cat.unit}`);
+                }}
+                style={{ marginVertical: 8, borderRadius: 16 }}
+              />
+            ) : (
+              <View style={[styles.center, { height: 100 }]}><Text style={styles.textMuted}>Sin datos suficientes</Text></View>
+            )}
+          </View>
+        )}
 
         <View style={styles.statsGrid}>
           <BigStat label="Promedio" value={stats.avg} unit={cat.unit} />
@@ -784,29 +913,43 @@ function App() {
           {loading && !refreshing ? (
             <View style={styles.center}>
               <ActivityIndicator size="large" color={THEME.primary} />
-              <Text style={[styles.textMuted, { marginTop: 20 }]}>Conectando...</Text>
+              
+              <TouchableOpacity onLongPress={() => setShowDebug(true)} activeOpacity={1}>
+                <Text style={[styles.textMuted, { marginTop: 20 }]}>Conectando...</Text>
+              </TouchableOpacity>
 
-              <View style={{ marginTop: 30, width: '80%' }}>
-                <TextInput
-                  style={[styles.input, { height: 40, textAlign: 'center' }]}
-                  value={baseUrl} onChangeText={setBaseUrl}
-                />
-                <TouchableOpacity
-                  style={{ backgroundColor: THEME.primary, padding: 12, borderRadius: 10, marginTop: 10 }}
-                  onPress={onRefresh}
-                >
-                  <Text style={{ color: THEME.bg, textAlign: 'center', fontWeight: 'bold' }}>Reintentar</Text>
-                </TouchableOpacity>
+              {showDebug && (
+                <View style={{ marginTop: 30, width: '80%' }}>
+                  <TextInput
+                    style={[styles.input, { height: 40, textAlign: 'center' }]}
+                    value={baseUrl} onChangeText={setBaseUrl}
+                  />
+                  <TouchableOpacity
+                    style={{ backgroundColor: THEME.primary, padding: 12, borderRadius: 10, marginTop: 10 }}
+                    onPress={onRefresh}
+                  >
+                    <Text style={{ color: THEME.bg, textAlign: 'center', fontWeight: 'bold' }}>Reintentar</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={{ marginTop: 20 }}
-                  onPress={skipLoading}
-                >
-                  <Text style={{ color: THEME.textMuted, textAlign: 'center', textDecorationLine: 'underline' }}>Omitir carga</Text>
-                </TouchableOpacity>
-
-                <Text style={[styles.textMuted, { fontSize: 10, marginTop: 40, textAlign: 'center' }]}>v2.5.0</Text>
-              </View>
+                  <TouchableOpacity
+                    style={{ marginTop: 20 }}
+                    onPress={skipLoading}
+                  >
+                    <Text style={{ color: THEME.textMuted, textAlign: 'center', textDecorationLine: 'underline' }}>Omitir carga</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={{ marginTop: 10 }}
+                    onPress={() => setShowDebug(false)}
+                  >
+                    <Text style={{ color: THEME.textMuted, textAlign: 'center', fontSize: 10 }}>Ocultar ajustes</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {!showDebug && (
+                <Text style={[styles.textMuted, { fontSize: 10, marginTop: 40, textAlign: 'center' }]}>Mi Progreso v2.5.0</Text>
+              )}
             </View>
           ) : renderTabContent()}
         </View>
@@ -957,8 +1100,40 @@ function App() {
                 placeholderTextColor={THEME.textMuted} value={newEntryVal}
                 onChangeText={setNewEntryVal}
               />
+
+              <TouchableOpacity
+                style={[styles.manualDateToggle, useManualDate && styles.manualDateToggleActive]}
+                onPress={() => setUseManualDate(!useManualDate)}
+              >
+                <Text style={[styles.manualDateToggleText, useManualDate && styles.manualDateToggleTextActive]}>
+                  {useManualDate ? '📅 Fecha Manual: ' + newEntryDate.toLocaleDateString() : '📅 Usar fecha actual'}
+                </Text>
+              </TouchableOpacity>
+
+              {useManualDate && (
+                <View style={{ marginBottom: 15 }}>
+                  <TouchableOpacity
+                    style={styles.datePickerBtn}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={styles.datePickerBtnText}>Seleccionar Fecha</Text>
+                  </TouchableOpacity>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={newEntryDate}
+                      mode="date"
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) setNewEntryDate(selectedDate);
+                      }}
+                    />
+                  )}
+                </View>
+              )}
+
               <View style={styles.modalButtons}>
-                <TouchableOpacity onPress={() => setShowAddEntry(false)} style={styles.cancelBtn}><Text style={styles.btnText}>Cancelar</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => { setShowAddEntry(false); setUseManualDate(false); }} style={styles.cancelBtn}><Text style={styles.btnText}>Cancelar</Text></TouchableOpacity>
                 <TouchableOpacity onPress={handleAddEntry} style={styles.confirmBtn}><Text style={styles.btnText}>Guardar</Text></TouchableOpacity>
               </View>
             </View>
@@ -1117,6 +1292,37 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.border,
     color: THEME.textMuted,
     opacity: 0.8
+  },
+  manualDateToggle: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: THEME.bg,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    marginBottom: 15,
+    alignItems: 'center'
+  },
+  manualDateToggleActive: {
+    borderColor: THEME.secondary,
+    backgroundColor: THEME.secondary + '10'
+  },
+  manualDateToggleText: {
+    color: THEME.textMuted,
+    fontSize: 14,
+    fontWeight: 'bold'
+  },
+  manualDateToggleTextActive: {
+    color: THEME.secondary
+  },
+  datePickerBtn: {
+    backgroundColor: THEME.secondary,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center'
+  },
+  datePickerBtnText: {
+    color: '#fff',
+    fontWeight: 'bold'
   },
   // Profile styles
   profileCard: {

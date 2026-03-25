@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from './firebaseConfig';
 
 export default function LoginScreen() {
@@ -41,6 +41,22 @@ export default function LoginScreen() {
       if (err.code === 'auth/wrong-password') msg = 'Contraseña incorrecta';
       if (err.code === 'auth/email-already-in-use') msg = 'Este email ya está registrado';
       Alert.alert('Error de Autenticación', msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) return Alert.alert('Email Requerido', 'Por favor ingresa tu email para enviarte el enlace de recuperación.');
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert('Email Enviado', 'Se ha enviado un correo para restablecer tu contraseña. Por favor revisa tu bandeja de entrada.');
+    } catch (err) {
+      let msg = err.message;
+      if (err.code === 'auth/invalid-email') msg = 'Email inválido';
+      if (err.code === 'auth/user-not-found') msg = 'Usuario no encontrado';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -106,14 +122,25 @@ export default function LoginScreen() {
         {loading ? (
           <ActivityIndicator size="large" color={activeColor} style={{ marginVertical: 20 }} />
         ) : (
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: activeColor }]}
-            onPress={handleAuth}
-          >
-            <Text style={[styles.btnText, { color: THEME.bg }]}>
-              {isSignUp ? 'Empezar ahora' : 'Ingresar'}
-            </Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[styles.btn, { backgroundColor: activeColor }]}
+              onPress={handleAuth}
+            >
+              <Text style={[styles.btnText, { color: THEME.bg }]}>
+                {isSignUp ? 'Empezar ahora' : 'Ingresar'}
+              </Text>
+            </TouchableOpacity>
+
+            {!isSignUp && (
+              <TouchableOpacity
+                style={{ marginTop: 20, alignItems: 'center' }}
+                onPress={handleForgotPassword}
+              >
+                <Text style={{ color: THEME.primary, fontWeight: 'bold' }}>¿Olvidaste tu contraseña?</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
 
       </View>
