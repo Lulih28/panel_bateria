@@ -27,7 +27,8 @@ urlpatterns = [
     path('api/entries/<int:pk>/', mi_api.TrackEntryDetailAPI.as_view(), name='api-entry-detail'),
     path('api/delete-account/', mi_api.UserDeleteAPI.as_view(), name='api-delete-account'),
     path('api/api-keys/', mi_api.UserAPIKeyListCreateAPI.as_view(), name='api-keys'),
-    path('api/api-keys/<int:pk>/revoke/', mi_api.UserAPIKeyRevokeAPI.as_view(), name='api-key-revoke'),
+    path('api/api-keys/<str:pk>/revoke/', mi_api.UserAPIKeyRevokeAPI.as_view(), name='api-key-revoke'),
+
 ]
 
 

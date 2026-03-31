@@ -435,15 +435,22 @@ function App() {
             try {
               const headers = await getHeaders();
               const res = await fetch(`${endpoints.apiKeys}${keyId}/revoke/`, {
+
+
                 method: 'DELETE',
                 headers
               });
               if (res.ok) {
+                Alert.alert('Éxito', 'Llave revocada correctamente');
                 fetchData();
+              } else {
+                const errorDetail = await res.text();
+                Alert.alert('Error al revocar', `Status ${res.status}: ${errorDetail}`);
               }
             } catch (err) {
-              Alert.alert('Error', 'No se pudo revocar la clave');
+              Alert.alert('Error de red', `No se pudo conectar: ${err.message}`);
             }
+
           }
         }
       ]
