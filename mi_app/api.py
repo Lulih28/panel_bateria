@@ -47,9 +47,6 @@ class UserAPIKeyRevokeAPI(generics.DestroyAPIView):
     def get_queryset(self):
         return UserAPIKey.objects.filter(user=self.request.user)
 
-    def perform_destroy(self, instance):
-        instance.revoked = True
-        instance.save()
 
 
 class CategoryListCreateAPI(generics.ListCreateAPIView):
