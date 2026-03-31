@@ -1,5 +1,17 @@
 from django.db import models
 from django.utils import timezone
+from rest_framework_api_key.models import AbstractAPIKey
+
+class UserAPIKey(AbstractAPIKey):
+    user = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name="api_keys",
+    )
+
+    class Meta:
+        verbose_name = "User API Key"
+        verbose_name_plural = "User API Keys"
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -33,4 +45,5 @@ class TrackEntry(models.Model):
 
     def __str__(self):
         return f"{self.category.name}: {self.value} {self.category.unit or ''} at {self.created_at}"
+
 

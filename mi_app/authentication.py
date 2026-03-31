@@ -35,10 +35,11 @@ if not firebase_admin._apps:
 class FirebaseAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.META.get('HTTP_AUTHORIZATION')
-        if not auth_header:
+        if not auth_header or not auth_header.startswith('Bearer '):
             return None
 
         id_token = auth_header.split(' ').pop()
+
         
         try:
             decoded_token = auth.verify_id_token(id_token)

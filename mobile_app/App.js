@@ -12,6 +12,8 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import * as Device from 'expo-device';
 import * as Battery from 'expo-battery';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Clipboard from 'expo-clipboard';
+
 
 // FIREBASE IMPORTS
 import { onAuthStateChanged, signOut, updateProfile, deleteUser } from 'firebase/auth';
@@ -44,8 +46,10 @@ function App() {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
-  // URL del servidor en producción (Render)
-  const [baseUrl, setBaseUrl] = useState('https://panel-bateria.onrender.com');
+  // URL del servidor (Local en desarrollo, Render en producción)
+  const [baseUrl, setBaseUrl] = useState(__DEV__ ? 'http://192.168.1.36:8000' : 'https://panel-bateria.onrender.com');
+
+
 
   // Handle user state changes
   function onAuthStateChangedHandler(user) {
@@ -64,7 +68,9 @@ function App() {
   // --- Main App Implementation ---
   const [categories, setCategories] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [apiKeys, setApiKeys] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('panel');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
@@ -99,7 +105,9 @@ function App() {
   const endpoints = {
     categories: `${baseUrl}/api/categories/`,
     entries: `${baseUrl}/api/entries/`,
+    apiKeys: `${baseUrl}/api/api-keys/`,
   };
+
 
   const fetchData = async () => {
     const user = auth.currentUser;
@@ -126,7 +134,14 @@ function App() {
         const dataEntries = await resEntries.json();
         setEntries(Array.isArray(dataEntries) ? dataEntries : []);
       }
+
+      const resKeys = await fetch(endpoints.apiKeys, { signal: controller.signal, headers });
+      if (resKeys.ok) {
+        const dataKeys = await resKeys.json();
+        setApiKeys(Array.isArray(dataKeys) ? dataKeys : []);
+      }
     } catch (err) {
+
       Alert.alert('Error de conexión', 'No se pudo contactar con el servidor. Verifica tu conexión e IP.');
     } finally {
       clearTimeout(timeoutId);
@@ -377,6 +392,64 @@ function App() {
       ]
     );
   };
+
+  const handleCreateApiKey = async () => {
+    try {
+      const headers = await getHeaders();
+      const res = await fetch(endpoints.apiKeys, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: `Key from Mobile (${Device.modelName || 'Device'})` })
+      });
+      if (res.ok) {
+        const newKey = await res.json();
+        Alert.alert(
+          'Nueva API Key Generada',
+          `Copia tu clave ahora, no podrás verla de nuevo:\n\n${newKey.key}`,
+          [
+            { text: 'Copiar', onPress: () => Clipboard.setStringAsync(newKey.key) },
+            { text: 'Cerrar' }
+          ]
+        );
+        fetchData();
+      } else {
+        const errorText = await res.text();
+        Alert.alert('Error', `Servidor respondió con error (${res.status}): ${errorText}`);
+      }
+    } catch (err) {
+      Alert.alert('Error', `No se pudo conectar al servidor: ${err.message}`);
+    }
+
+  };
+
+  const handleRevokeApiKey = (keyId) => {
+    Alert.alert(
+      'Revocar API Key',
+      '¿Estás seguro? Las aplicaciones que usen esta clave dejarán de funcionar.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Revocar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const headers = await getHeaders();
+              const res = await fetch(`${endpoints.apiKeys}${keyId}/revoke/`, {
+                method: 'DELETE',
+                headers
+              });
+              if (res.ok) {
+                fetchData();
+              }
+            } catch (err) {
+              Alert.alert('Error', 'No se pudo revocar la clave');
+            }
+          }
+        }
+      ]
+    );
+  };
+
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -874,14 +947,42 @@ function App() {
                 <Text style={[styles.logoutBtnText, { color: THEME.danger }]}>Eliminar Cuenta</Text>
               </TouchableOpacity>
             </View>
+ 
+            {/* API KEYS SECTION */}
+            <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+              <Text style={styles.sectionTitle}>MCP / API Keys</Text>
+              <TouchableOpacity onPress={handleCreateApiKey} style={styles.addBtn}>
+                <Text style={styles.addBtnText}>+ Nueva Clave</Text>
+              </TouchableOpacity>
+            </View>
 
-
+            {apiKeys.length === 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.textMuted}>No tienes claves activas. Genera una para usar el servidor MCP.</Text>
+              </View>
+            ) : (
+              apiKeys.map(key => (
+                <View key={key.id} style={[styles.historyItem, { borderLeftColor: THEME.primary }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.historyCategory}>{key.name}</Text>
+                    <Text style={styles.historyDate}>Prefijo: {key.prefix}***</Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => handleRevokeApiKey(key.id)}
+                    style={{ padding: 5 }}
+                  >
+                    <Text style={{ color: THEME.danger, fontWeight: 'bold' }}>Revocar</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
 
             <Text style={styles.versionLabel}>
               Mi Progreso v2.5.0
             </Text>
           </View>
         );
+
       default:
         return null;
     }

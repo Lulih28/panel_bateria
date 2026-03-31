@@ -1,8 +1,15 @@
 from rest_framework import serializers, validators
-from .models import Category, TrackEntry
+from .models import Category, TrackEntry, UserAPIKey
+
+class UserAPIKeySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAPIKey
+        fields = ["id", "name", "prefix", "created", "revoked"]
+        read_only_fields = ["prefix", "created"]
 
 class CategorySerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
 
     class Meta:
         model = Category
