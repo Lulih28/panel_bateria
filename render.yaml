@@ -1,0 +1,38 @@
+databases:
+  - name: mediciones-db
+    databaseName: mediciones
+    user: mediciones_user
+    plan: free
+
+services:
+  - type: web
+    name: mediciones-django
+    env: python
+    plan: free
+    buildCommand: "./render-build.sh"
+    startCommand: "gunicorn nuevocopi.wsgi"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mediciones-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "*" # En producción podrías restringirlo a la URL de Render
+
+  - type: web
+    name: mediciones-mcp
+    env: python
+    plan: free
+    buildCommand: "pip install -r mcp_server/requirements.txt"
+    startCommand: "python mcp_server/server.py --sse"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: API_BASE_URL
+        value: "https://mediciones-django.onrender.com/api"
+      - key: API_KEY
+        value: "REEMPLAZAR_EN_DASHBOARD" # Esto lo vas a tener que poner manual en Render
