@@ -46,8 +46,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
-  // URL del servidor (Local en desarrollo, Render en producción)
-  const [baseUrl, setBaseUrl] = useState(__DEV__ ? 'http://192.168.1.36:8000' : 'https://panel-bateria.onrender.com');
+  // URL del servidor (apuntando a Render para que funcione siempre)
+  const [baseUrl, setBaseUrl] = useState('https://lulih28.pythonanywhere.com');
 
 
 
@@ -114,7 +114,7 @@ function App() {
     if (!user) return; // Should not happen if guarded
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos para dar tiempo a Render a despertar
 
     try {
       setLoading(true);
@@ -141,8 +141,11 @@ function App() {
         setApiKeys(Array.isArray(dataKeys) ? dataKeys : []);
       }
     } catch (err) {
-
-      Alert.alert('Error de conexión', 'No se pudo contactar con el servidor. Verifica tu conexión e IP.');
+      if (err.name === 'AbortError') {
+        Alert.alert('Servidor iniciando', 'El servidor estaba suspendido por inactividad y está tardando en despertar. Por favor, intenta de nuevo en unos 30 segundos.');
+      } else {
+        Alert.alert('Error de conexión', 'No se pudo contactar con el servidor. Verifica tu conexión a internet.');
+      }
     } finally {
       clearTimeout(timeoutId);
       setLoading(false);

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mi Progreso",
     "slug": "mobile_app",
-    "version": "1.0.2",
+    "version": "1.0.5",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.luciacordoba.medicionesapp",
-      "versionCode": 3,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
